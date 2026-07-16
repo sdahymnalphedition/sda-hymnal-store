@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDA Hymnal Projector - Pro Upgrade</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 480px;
+            width: 100%;
+        }
+        h1 { color: #2c3e50; font-size: 28px; text-align: center; }
+        .subtitle { text-align: center; color: #7f8c8d; margin: 10px 0 25px; }
+        .price { text-align: center; font-size: 48px; font-weight: bold; color: #27ae60; }
+        .price small { font-size: 16px; color: #7f8c8d; }
+        .features { background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 20px 0; }
+        .features li { list-style: none; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .features li:last-child { border-bottom: none; }
+        .features li::before { content: "✅ "; }
+        .form-group { margin: 15px 0; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: #2c3e50; }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus { border-color: #667eea; outline: none; }
+        .device-hint { background: #e8f4f8; padding: 12px; border-radius: 8px; font-size: 13px; color: #2c3e50; margin: 10px 0; }
+        .device-hint code { background: #d4e4ed; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+        .btn-buy {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        .btn-buy:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
+        .btn-buy:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .loading { display: none; text-align: center; color: #667eea; margin: 15px 0; }
+        .loading.active { display: block; }
+        .error-message { display: none; background: #fee; color: #c0392b; padding: 12px; border-radius: 8px; margin: 10px 0; }
+        .error-message.active { display: block; }
+        .footer { text-align: center; margin-top: 20px; color: #bdc3c7; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🙏 SDA Hymnal Projector</h1>
+        <p class="subtitle">Unlock the Complete Hymnal</p>
+        <div class="price">₱200 <small>one-time</small></div>
+
+        <ul class="features">
+            <li>Complete hymnal dataset</li>
+            <li>Import / Export functionality</li>
+            <li>Lifetime updates</li>
+            <li>Hardware‑locked for security</li>
+        </ul>
+
+        <div class="device-hint">
+            📱 <strong>Need your Device ID?</strong><br>
+            Open the app → Settings → Pro Upgrade → Copy your <code>Device ID</code>
+        </div>
+
+        <form id="purchaseForm">
+            <div class="form-group">
+                <label for="deviceId">Device ID</label>
+                <input type="text" id="deviceId" placeholder="Paste your Device ID here" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" placeholder="Where to send your activation key" required>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+            <div class="loading" id="loading">⏳ Creating checkout... Please wait.</div>
+
+            <button type="submit" class="btn-buy" id="buyButton">
+                💳 Proceed to Payment
+            </button>
+        </form>
+
+        <div class="footer">
+            <p>🔒 Secure payment via PayMongo</p>
+            <p style="margin-top: 5px;">Your key will be emailed instantly after payment</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://sda-hymnal-api.workers.dev/api/create-checkout';
+
+        document.getElementById('purchaseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const deviceId = document.getElementById('deviceId').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const button = document.getElementById('buyButton');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('errorMessage');
+
+            errorMessage.classList.remove('active');
+            errorMessage.textContent = '';
+
+            if (!deviceId || !email) {
+                errorMessage.textContent = 'Please enter both your Device ID and email.';
+                errorMessage.classList.add('active');
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            loading.classList.add('active');
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceId, email }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create checkout');
+                }
+
+                window.location.href = data.checkout_url;
+
+            } catch (error) {
+                errorMessage.textContent = error.message || 'Something went wrong. Please try again.';
+                errorMessage.classList.add('active');
+                button.disabled = false;
+                button.textContent = '💳 Proceed to Payment';
+                loading.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
