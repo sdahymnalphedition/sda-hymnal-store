@@ -20,15 +20,77 @@
             padding: 50px;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 500px;
+            max-width: 550px;
             width: 100%;
             text-align: center;
         }
         .checkmark { font-size: 80px; color: #27ae60; }
         h1 { color: #2c3e50; margin: 20px 0 10px; }
         p { color: #7f8c8d; line-height: 1.6; margin: 10px 0; }
-        .box { background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 20px 0; }
-        .btn { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; }
+        .key-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 2px dashed #27ae60;
+        }
+        .key-box code {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .device-box {
+            background: #e8f4f8;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0 20px;
+            font-family: monospace;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #5a67d8; }
+        .btn-green { background: #27ae60; }
+        .btn-green:hover { background: #219a52; }
+        .btn-email { background: #ea4335; }
+        .btn-email:hover { background: #d33426; }
+        .loading { color: #667eea; margin: 20px 0; }
+        .error { color: #e74c3c; margin: 20px 0; }
+        .footer { margin-top: 20px; color: #bdc3c7; font-size: 12px; }
+        .note { 
+            background: #fff3cd; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            text-align: left; 
+            font-size: 14px;
+        }
+        .note strong { color: #856404; }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .button-group .btn {
+            flex: 1;
+            min-width: 120px;
+        }
     </style>
 </head>
 <body>
@@ -37,15 +99,131 @@
         <h1>Payment Successful!</h1>
         <p>Thank you for purchasing the Pro version.</p>
         
-        <div class="box">
-            <p style="font-weight: bold; color: #2c3e50;">📧 Check your email</p>
-            <p>Your activation key has been sent to your email address.</p>
-            <p style="font-size: 14px; color: #95a5a6;">It should arrive within 1-2 minutes.</p>
+        <div id="loading" class="loading">⏳ Retrieving your activation key...</div>
+        
+        <div id="keySection" style="display: none;">
+            <p>Your activation key is ready:</p>
+            <div class="key-box">
+                <code id="keyDisplay">---</code>
+            </div>
+            <div class="device-box">
+                <strong>Device ID:</strong> <span id="deviceDisplay"></span>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-green" onclick="copyKey()">📋 Copy Key</button>
+                <button class="btn" onclick="downloadKey()">📥 Download Key</button>
+                <button class="btn btn-email" onclick="emailYourself()">📧 Email Myself a Copy</button>
+            </div>
+            
+            <div class="note">
+                <strong>📱 How to activate:</strong><br>
+                1. Open the SDA Hymnal Projector app<br>
+                2. Go to Settings → Pro Upgrade<br>
+                3. Enter your Device ID (shown above)<br>
+                4. Paste the activation key and click "Activate"
+            </div>
+            
+            <p style="font-size: 14px; color: #95a5a6;">This key is permanently locked to your device.</p>
         </div>
         
-        <p style="font-size: 14px; color: #95a5a6;">Didn't receive it? Check your spam folder.</p>
+        <div id="error" class="error" style="display: none;"></div>
         
-        <a href="https://sdahymnalphedition.github.io/sda-hymnal-store/" class="btn">← Back to Home</a>
+        <a href="/" class="btn" style="background: #95a5a6; margin-top: 20px;">← Back to Home</a>
+        
+        <div class="footer">
+            <p>🔒 Your key has been securely delivered.</p>
+        </div>
     </div>
+
+    <script>
+        // ============================================
+        // FETCH KEY FROM WORKER
+        // ============================================
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const checkoutId = urlParams.get('checkout_id') || urlParams.get('id');
+
+        if (!checkoutId) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = '❌ Missing payment information. Please contact support.';
+        } else {
+            const API_URL = `https://sda-hymnal-api.sdahymnalphed.workers.dev/api/get-key?checkout_id=${checkoutId}`;
+            
+            fetch(API_URL)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+                    if (data.error) {
+                        document.getElementById('error').style.display = 'block';
+                        document.getElementById('error').textContent = '❌ ' + data.error;
+                    } else {
+                        document.getElementById('keySection').style.display = 'block';
+                        document.getElementById('keyDisplay').textContent = data.key;
+                        document.getElementById('deviceDisplay').textContent = data.device_id;
+                        
+                        // Store for button functions
+                        window.activationKey = data.key;
+                        window.deviceId = data.device_id;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('error').style.display = 'block';
+                    document.getElementById('error').textContent = '❌ Error retrieving your key. Please contact support.';
+                    console.error('Fetch error:', error);
+                });
+        }
+
+        // ============================================
+        // BUTTON FUNCTIONS
+        // ============================================
+
+        // Copy key to clipboard
+        function copyKey() {
+            if (window.activationKey) {
+                navigator.clipboard.writeText(window.activationKey);
+                alert('✅ Key copied to clipboard!');
+            }
+        }
+
+        // Download key as text file
+        function downloadKey() {
+            if (window.activationKey) {
+                const content = `SDA Hymnal Projector Pro - Activation Key\n\nDevice ID: ${window.deviceId}\nActivation Key: ${window.activationKey}\n\nInstructions:\n1. Open the SDA Hymnal Projector app\n2. Go to Settings → Pro Upgrade\n3. Enter your Device ID (shown above)\n4. Paste the activation key and click "Activate"\n\nThis key is permanently locked to your device.`;
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sda-hymnal-activation-key.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // Email a copy to themselves
+        function emailYourself() {
+            if (window.activationKey) {
+                const subject = encodeURIComponent('SDA Hymnal Projector Pro Activation Key');
+                const body = encodeURIComponent(
+                    `SDA Hymnal Projector Pro - Activation Key\n\n` +
+                    `Device ID: ${window.deviceId}\n` +
+                    `Activation Key: ${window.activationKey}\n\n` +
+                    `Instructions:\n` +
+                    `1. Open the SDA Hymnal Projector app\n` +
+                    `2. Go to Settings → Pro Upgrade\n` +
+                    `3. Enter your Device ID (shown above)\n` +
+                    `4. Paste the activation key and click "Activate"\n\n` +
+                    `This key is permanently locked to your device.`
+                );
+                
+                // Open the user's default email client
+                window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            }
+        }
+    </script>
 </body>
 </html>
